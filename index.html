@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>機場禁區通行證 - 像素風機場挑戰賽</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: #f0f2f5;
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            user-select: none;
+        }
+
+        #game-container {
+            position: relative;
+            width: 800px;
+            height: 500px;
+            /* 黃昏/日落時分的香港機場天空背景 */
+            background: linear-gradient(to bottom, #111e38 0%, #204065 40%, #e67e22 80%, #f39c12 100%); 
+            border: 4px solid #333;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+        }
+
+        /* 🌆 香港國際機場建築物與控制塔剪影（飛機在右方跑道上） */
+        #airport-skyline {
+            position: absolute;
+            bottom: 40px; 
+            left: 0;
+            width: 100%;
+            height: 120px; 
+            background-image: 
+                /* 跑道上的飛機剪影 */
+                url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 50' fill='%23111e38'><path d='M10,25 Q30,20 60,23 L85,10 L88,12 L75,25 L92,26 L95,22 L98,22 L96,28 L98,34 L95,34 L92,30 L75,31 L88,44 L85,46 L60,33 Q30,32 10,25 Z'/></svg>"),
+                /* 機場控制塔與客運大樓剪影 */
+                url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 800 120' fill='%231a2a44'><rect x='50' y='80' width='120' height='40'/><polygon points='90,80 100,20 120,20 130,80'/><rect x='95' y='25' width='20' height='15' fill='%232c3e50'/><rect x='250' y='90' width='300' height='30'/><path d='M250,90 Q400,60 550,90 Z'/><rect x='600' y='75' width='80' height='45'/></svg>");
+            
+            background-position: right 40px bottom 10px, bottom center;
+            background-repeat: no-repeat, repeat-x;
+            background-size: 75px 38px, 800px 120px; 
+            opacity: 0.9;
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        /* 頂部 UI */
+        #ui-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            padding: 15px;
+            box-sizing: border-box;
+            display: flex;
+            justify-content: space-between;
+            font-size: 20px;
+            font-weight: bold;
+            color: #fff; 
+            text-shadow: 1px 1px 4px rgba(0,0,0,0.8);
+            z-index: 10;
+        }
+
+        /* 題目顯示區域 */
+        #question-box {
+            position: absolute;
+            top: 60px; 
+            left: 50%;
+            transform: translateX(-50%);
+            width: 80%;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 15px;
+            border-radius: 10px;
+            text-align: center;
+            font-size: 22px;
+            font-weight: bold;
+            border: 3px solid #0056b3;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+            color: #222;
+            z-index: 10;
+        }
+
+        /* 地面：機場跑道風格 */
+        #ground {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 40px;
+            background: #444; 
+            border-top: 5px solid #666; 
+            box-sizing: border-box;
+        }
+        
+        #ground::after {
+            content: "";
+            position: absolute;
+            top: 15px;
+            left: 0;
+            width: 100%;
+            height: 4px;
+            background: repeating-linear-gradient(90deg, #f1c40f, #f1c40f 40px, transparent 40px, transparent 80px);
+        }
+
+        /* 🧑‍✈️ 純 CSS 8-bit 像素風機場職員 */
+        #player {
+            position: absolute;
+            width: 44px;  
+            height: 64px; 
+            z-index: 5;
+            transition: transform 0.1s, filter 0.2s; 
+            
+            background: 
+                /* 眼睛 */
+                linear-gradient(to right, #000 0%, #000 100%) 24px 20px / 4px 4px,
+                linear-gradient(to right, #000 0%, #000 100%) 36px 20px / 4px 4px,
+                /* 機長帽金色徽章 */
+                linear-gradient(to right, #f1c40f 0%, #f1c40f 100%) 28px 4px / 8px 4px,
+                /* 機長大盤帽 */
+                linear-gradient(to right, #f39c12 0%, #f39c12 100%) 16px 0px / 32px 4px,
+                linear-gradient(to right, #f1c40f 0%, #f1c40f 100%) 12px 4px / 40px 4px,
+                linear-gradient(to right, #222 0%, #222 100%) 8px 8px / 44px 4px,
+                /* 皮膚 */
+                linear-gradient(to right, #ffdbac 0%, #ffdbac 100%) 16px 12px / 32px 16px,
+                linear-gradient(to right, #ffdbac 0%, #ffdbac 100%) 24px 28px / 16px 4px,
+                /* 深藍色制服與領帶 */
+                linear-gradient(to right, #c0392b 0%, #c0392b 100%) 30px 32px / 4px 12px, /* 紅領帶 */
+                linear-gradient(to right, #2980b9 0%, #2980b9 100%) 12px 32px / 40px 24px, /* 制服外套 */
+                /* 雙手 */
+                linear-gradient(to right, #ffdbac 0%, #ffdbac 100%) 4px 40px / 8px 8px,
+                linear-gradient(to right, #ffdbac 0%, #ffdbac 100%) 52px 4px / 8px 8px, 
+                /* 褲子 */
+                linear-gradient(to right, #34495e 0%, #34495e 100%) 16px 56px / 12px 4px, 
+                linear-gradient(to right, #34495e 0%, #34495e 100%) 36px 56px / 12px 4px, 
+                /* 皮鞋 */
+                linear-gradient(to right, #111 0%, #111 100%) 12px 60px / 16px 4px,
+                linear-gradient(to right, #111 0%, #111 100%) 36px 60px / 16px 4px;
+            
+            background-repeat: no-repeat;
+        }
+
+        .facing-left {
+            transform: scaleX(-1);
+        }
+
+        /* 答案磚塊 */
+        .block {
+            position: absolute;
+            width: 80px;
+            height: 50px;
+            border-radius: 8px;
+            border: 3px solid #333;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            font-weight: bold;
+            color: white;
+            box-shadow: 0 6px 0 #222;
+            z-index: 5;
+        }
+        .block-green { background: #2ecc71; top: 220px; left: 250px; } 
+        .block-red { background: #e74c3c; top: 220px; left: 470px; }
+
+        /* 磚塊彈跳動畫 */
+        @keyframes bump {
+            0% { transform: translateY(0); }
+            50% { transform: translateY(-15px); }
+            100% { transform: translateY(0); }
+        }
+        .bumped {
+            animation: bump 0.15s ease;
+        }
+
+        /* ⭐ 瑪利歐風格浮出星星特效 */
+        .star-effect {
+            position: absolute;
+            font-size: 36px;
+            color: #f1c40f; 
+            text-shadow: 0 0 10px rgba(241, 196, 15, 1), 0 0 2px #000;
+            pointer-events: none;
+            z-index: 6;
+            animation: floatUpStar 0.6s cubic-bezier(0.18, 0.89, 0.32, 1.28) forwards;
+        }
+
+        @keyframes floatUpStar {
+            0% {
+                transform: translate(-50%, 0) scale(0.5);
+                opacity: 0;
+            }
+            30% {
+                opacity: 1;
+                transform: translate(-50%, -60px) scale(1.4);
+            }
+            100% {
+                transform: translate(-50%, -130px) scale(1);
+                opacity: 0;
+            }
+        }
+
+        /* 遮罩畫面 */
+        #screen-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(17, 30, 56, 0.9); 
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            z-index: 100;
+            text-align: center;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        button {
+            padding: 12px 35px;
+            font-size: 22px;
+            background: #f1c40f; 
+            color: #111;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            margin-top: 25px;
+            font-weight: bold;
+            box-shadow: 0 4px 15px rgba(241, 196, 15, 0.4);
+            transition: transform 0.1s;
+        }
+        button:hover { background: #f39c12; transform: scale(1.05); }
+    </style>
+</head>
+<body>
+
+    <div id="game-container">
+        <div id="airport-skyline"></div>
+
+        <div id="ui-layer">
+            <div id="score-display">得分: 0</div>
+            <div id="progress-display">題目: 1 / 5</div>
+        </div>
+
+        <div id="question-box">準備開始遊戲...</div>
+
+        <div id="block-green" class="block block-green">⭕</div>
+        <div id="block-red" class="block block-red">❌</div>
+
+        <div id="player"></div>
+
+        <div id="ground"></div>
+
+        <div id="screen-overlay">
+            <h1 id="overlay-title">✈️ 香港國際機場<br>禁區通行證問答挑戰賽</h1>
+            <p id="overlay-desc" style="max-width: 500px; line-height: 1.6; font-size: 16px;">
+                歡迎來到香港國際機場！<br>
+                每次挑戰將從<b>10題核心題庫</b>中隨機抽出<b>5題</b>！<br>
+                請使用左右方向鍵移動，上方向鍵或空白鍵跳躍。<br>
+                用頭頂起磚塊回答。答對可獲得星星和 20 分！
+            </p>
+            <button id="start-btn" onclick="startGame()">建立登機證 開始</button>
+        </div>
+    </div>
+
+<script>
+    // 核心更新：擴充至 10 題最正宗的官方守則題庫
+    const questionBank = [
+        { q: "通行證有效期屆滿了，我可以嘗試進入機場禁區嗎？", a: "❌" },
+        { q: "如果我的通行證上沒有「B」字批註，我可以進入行李處理大堂嗎？", a: "❌" },
+        { q: "當我自己離港旅遊時，可以使用通行證通過職員通道嗎？", a: "❌" },
+        { q: "我可以將我的通行證借給相熟的同事或朋友使用嗎？", a: "❌" },
+        { q: "當通行證損壞或不再受僱於該機構時，必須立刻交還嗎？", a: "⭕" },
+        { q: "如果我不小心把報失的通行證找回來了，可以直接拿來重新使用嗎？", a: "❌" },
+        { q: "我可以企圖進入我未獲批准進入的機場禁區分區嗎？", a: "❌" },
+        { q: "若違反通行證簽發條件，除了可能被取消通行證，還可能被檢控嗎？", a: "⭕" },
+        { q: "我可以私自塗改、更改、干擾或處置我本人的通行證嗎？", a: "❌" },
+        { q: "為了防止遺失，持證人必須採取適當措施妥善保管通行證嗎？", a: "⭕" }
+    ];
+
+    let currentQuestions = [];
+    let currentQuestionIndex = 0;
+    let score = 0;
+    let gameActive = false;
+
+    // 物理與常數設定
+    const containerWidth = 800;
+    const groundY = 40; 
+    const playerWidth = 44;  
+    const playerHeight = 64; 
+    
+    let playerX = 378;
+    let playerY = groundY; 
+    let velocityX = 0;
+    let velocityY = 0;
+    let isJumping = false;
+    const gravity = 0.6;
+    const jumpForce = 14;
+    const speed = 5;
+
+    const keys = { ArrowLeft: false, ArrowRight: false, ArrowUp: false, Space: false };
+
+    const gameContainer = document.getElementById('game-container');
+    const playerEl = document.getElementById('player');
+    const qBox = document.getElementById('question-box');
+    const scoreEl = document.getElementById('score-display');
+    const progressEl = document.getElementById('progress-display');
+    const overlay = document.getElementById('screen-overlay');
+    const overlayTitle = document.getElementById('overlay-title');
+    const overlayDesc = document.getElementById('overlay-desc');
+    const startBtn = document.getElementById('start-btn');
+    const blockGreen = document.getElementById('block-green');
+    const blockRed = document.getElementById('block-red');
+
+    window.addEventListener('keydown', (e) => {
+        if (e.code in keys || e.key === ' ') {
+            if(e.code === 'Space') keys['Space'] = true;
+            else keys[e.key] = true;
+            if(e.code === 'Space' || e.key === 'ArrowUp') e.preventDefault();
+        }
+    });
+    window.addEventListener('keyup', (e) => {
+        if (e.code in keys || e.key === ' ') {
+            if(e.code === 'Space') keys['Space'] = false;
+            else keys[e.key] = false;
+        }
+    });
+
+    // 核心更新：隨機洗牌並抽取指定數量的題目
+    function getRandomQuestions(bank, count) {
+        // 先複製一份題庫，避免打亂原始資料
+        let shuffled = [...bank].sort(() => Math.random() - 0.5);
+        // 切割出前 count (5) 題
+        return shuffled.slice(0, count);
+    }
+
+    function startGame() {
+        overlay.style.display = 'none';
+        score = 0;
+        currentQuestionIndex = 0;
+        playerX = 378;
+        playerY = groundY;
+        velocityY = 0;
+        isJumping = false;
+        playerEl.classList.remove('facing-left');
+        
+        // 核心修改：每次開始遊戲，隨機從10題庫抽出5題
+        currentQuestions = getRandomQuestions(questionBank, 5);
+        
+        updateUI();
+        gameActive = true;
+    }
+
+    function updateUI() {
+        scoreEl.innerText = `得分: ${score}`;
+        progressEl.innerText = `題目: ${currentQuestionIndex + 1} / 5`;
+        qBox.innerText = currentQuestions[currentQuestionIndex].q;
+    }
+
+    function createStarEffect(leftPosition, topPosition) {
+        const star = document.createElement('div');
+        star.className = 'star-effect';
+        star.innerText = '⭐';
+        star.style.left = (leftPosition + 40) + 'px'; 
+        star.style.top = topPosition + 'px';
+        
+        gameContainer.appendChild(star);
+        
+        setTimeout(() => {
+            star.remove();
+        }, 600);
+    }
+
+    function checkBlockCollision() {
+        let playerTopAbs = 500 - playerY - playerHeight;
+        
+        if (velocityY > 0 && playerTopAbs <= 270 && playerTopAbs >= 240) {
+            if (playerX + playerWidth > 250 && playerX < 330) {
+                triggerAnswer("⭕", blockGreen, 250, 220);
+            }
+            else if (playerX + playerWidth > 470 && playerX < 550) {
+                triggerAnswer("❌", blockRed, 470, 220);
+            }
+        }
+    }
+
+    function triggerAnswer(chosenAnswer, blockEl, blockLeft, blockTop) {
+        velocityY = -2; 
+        
+        blockEl.classList.add('bumped');
+        setTimeout(() => blockEl.classList.remove('bumped'), 150);
+
+        const correctAnswer = currentQuestions[currentQuestionIndex].a;
+        
+        if (chosenAnswer === correctAnswer) {
+            score += 20;
+            playerEl.style.filter = "drop-shadow(0 0 8px #2ecc71) brightness(1.2)";
+            createStarEffect(blockLeft, blockTop);
+        } else {
+            playerEl.style.filter = "drop-shadow(0 0 8px #e74c3c) brightness(0.8)";
+        }
+        
+        setTimeout(() => { playerEl.style.filter = "none"; }, 500);
+
+        currentQuestionIndex++;
+        if (currentQuestionIndex < 5) {
+            updateUI();
+            playerX = 378;
+        } else {
+            endGame();
+        }
+    }
+
+    function endGame() {
+        gameActive = false;
+        overlay.style.display = 'flex';
+        overlayTitle.innerText = "🎉 挑戰完成！";
+        overlayDesc.innerHTML = `你的最終得分是：<strong style='font-size:24px; color:#f1c40f;'>${score} 分</strong> / 100 分<br><br>${score === 100 ? '完美表現！你對機場禁區通行證守則瞭如指掌，是個稱職的機場精英！' : '安全至上！請重新温習機場禁區守則，確保機場運作安全！'}`;
+        startBtn.innerText = "重新挑戰";
+    }
+
+    function update() {
+        if (gameActive) {
+            if (keys.ArrowLeft) {
+                velocityX = -speed;
+                playerEl.classList.add('facing-left'); 
+            } else if (keys.ArrowRight) {
+                velocityX = speed;
+                playerEl.classList.remove('facing-left'); 
+            } else {
+                velocityX = 0;
+            }
+
+            if ((keys.ArrowUp || keys.Space) && !isJumping) {
+                velocityY = jumpForce;
+                isJumping = true;
+            }
+
+            playerY += velocityY;
+            if (isJumping) {
+                velocityY -= gravity;
+            }
+
+            if (playerY <= groundY) {
+                playerY = groundY;
+                velocityY = 0;
+                isJumping = false;
+            }
+
+            playerX += velocityX;
+            if (playerX < 0) playerX = 0;
+            if (playerX > containerWidth - playerWidth) playerX = containerWidth - playerWidth;
+
+            checkBlockCollision();
+
+            playerEl.style.left = playerX + 'px';
+            playerEl.style.bottom = playerY + 'px';
+        }
+
+        requestAnimationFrame(update);
+    }
+
+    update();
+</script>
+
+</body>
+</html>
