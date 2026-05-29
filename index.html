@@ -123,7 +123,7 @@
             width: 44px;  
             height: 64px; 
             z-index: 5;
-            transition: transform 0.1s, filter 0.2s; 
+            transition: transform 0.1s; 
             
             background: 
                 linear-gradient(to right, #000 0%, #000 100%) 24px 20px / 4px 4px,
@@ -146,6 +146,18 @@
         }
 
         .facing-left { transform: scaleX(-1); }
+
+        /* 💥 核心改進：改用高效能 CSS 動態閃爍，解決瀏覽器硬體加速死鎖問題 */
+        @keyframes correct-flash {
+            0% { filter: drop-shadow(0 0 12px #2ecc71) brightness(1.3); }
+            100% { filter: none; }
+        }
+        @keyframes wrong-flash {
+            0% { filter: drop-shadow(0 0 12px #e74c3c) brightness(0.8); }
+            100% { filter: none; }
+        }
+        .ans-correct { animation: correct-flash 0.4s ease forwards; }
+        .ans-wrong { animation: wrong-flash 0.4s ease forwards; }
 
         .block {
             position: absolute;
@@ -328,7 +340,7 @@
     let currentQuestionIndex = 0;
     let score = 0;
     let gameActive = false;
-    let isColliding = false; // 🛡️ 關鍵 Debug：防重複碰撞與死鎖的保護旗標
+    let isColliding = false; 
 
     const containerWidth = 800;
     const containerHeight = 460;
@@ -347,6 +359,7 @@
 
     const keys = { ArrowLeft: false, ArrowRight: false, ArrowUp: false, Space: false };
 
+    const gameContainer = document.getElementById('game-container');
     const gameWrapper = document.getElementById('game-wrapper');
     const playerEl = document.getElementById('player');
     const qBox = document.getElementById('question-box');
@@ -435,8 +448,8 @@
         playerY = groundY;
         velocityY = 0;
         isJumping = false;
-        isColliding = false; // 重設防卡死鎖
-        playerEl.classList.remove('facing-left');
+        isColliding = false; 
+        playerEl.className = ""; // 清空動畫類別
         
         Object.keys(keys).forEach(k => keys[k] = false);
         
@@ -462,7 +475,6 @@
     }
 
     function checkBlockCollision() {
-        // 如果目前正在處理前一個答案，直接跳過判定，防止多重複製與死鎖卡死
         if (isColliding) return;
 
         let playerTopAbs = containerHeight - playerY - playerHeight;
@@ -479,35 +491,26 @@
     }
 
     function triggerAnswer(chosenAnswer, blockEl, blockLeft, blockTop) {
-        isColliding = true; // 鎖定碰撞處理
-        velocityY = -2;     // 頂到磚塊後強迫職員往下掉（中斷上升）
+        isColliding = true; 
+        velocityY = -4; // 頂到瞬間給予強大下墜速度，瞬間脫離磚塊
         
         blockEl.classList.add('bumped');
         setTimeout(() => blockEl.classList.remove('bumped'), 150);
 
+        // 重設 CSS 動畫，確保每次頂磚塊都能正確重播
+        playerEl.classList.remove('ans-correct', 'ans-wrong');
+        void playerEl.offsetWidth; // 強制重流（Reflow），這是解決瀏覽器凍結的關鍵密技！
+
         const correctAnswer = currentQuestions[currentQuestionIndex].a;
         if (chosenAnswer === correctAnswer) {
             score += 20;
-            playerEl.style.filter = "drop-shadow(0 0 8px #2ecc71) brightness(1.2)";
+            playerEl.classList.add('ans-correct');
             createStarEffect(blockLeft, blockTop);
         } else {
-            // 答錯也正常發光與處理
-            playerEl.style.filter = "drop-shadow(0 0 8px #e74c3c) brightness(0.8)";
+            playerEl.classList.add('ans-wrong');
         }
-        
-        // 0.5秒後重設發光，並切換到下一題
-        setTimeout(() => { 
-            playerEl.style.filter = "none"; 
-            
-            currentQuestionIndex++;
-            if (currentQuestionIndex < 5) {
-                updateUI();       // 🛡️ 修正：不論對錯都正常更新下一題 UI 
-                playerX = 378;    // 🛡️ 修正：不論對錯都正常重設角色位置回到中間
-                isColliding = false; // 解除防重複判定鎖
-            } else {
-                endGame();
-            }
-        }, 500);
+
+        currentQuestionIndex++;
     }
 
     function endGame() {
@@ -543,10 +546,22 @@
                 velocityY -= gravity;
             }
 
+            // 【完全落地後的同步機制】
             if (playerY <= groundY) {
                 playerY = groundY;
                 velocityY = 0;
                 isJumping = false;
+                
+                // 當確定安全踩到跑道後，再更新下一題文字並重置位置，徹底斷絕黏在空中的視覺殘留 Bug！
+                if (isColliding) {
+                    if (currentQuestionIndex < 5) {
+                        updateUI();       
+                        playerX = 378; 
+                        isColliding = false; // 開鎖
+                    } else {
+                        endGame();
+                    }
+                }
             }
 
             playerX += velocityX;
