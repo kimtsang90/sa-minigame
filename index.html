@@ -18,7 +18,6 @@
             user-select: none;
             -webkit-user-select: none; 
             overflow: hidden; 
-            /* 關鍵：防止行動端瀏覽器下拉重置或橡皮筋回彈干擾遊戲 */
             overscroll-behavior: none; 
         }
 
@@ -29,7 +28,7 @@
             display: flex;
             flex-direction: column;
             align-items: center;
-            touch-action: none; /* 全域鎖定瀏覽器預設手勢 */
+            touch-action: none; 
         }
 
         #game-container {
@@ -189,7 +188,7 @@
             100% { transform: translate(-50%, -130px) scale(1); opacity: 0; }
         }
 
-        /* 📱 虛擬按鈕優化 */
+        /* 📱 虛擬按鈕樣式 */
         #touch-controls {
             width: 100%;
             height: 90px;
@@ -215,13 +214,12 @@
             justify-content: center;
             font-size: 30px;
             box-shadow: 0 5px 0 #1a252f;
-            touch-action: none; /* 核心：禁止行動端預設手勢（如長按選取、滾動） */
+            touch-action: none; 
             user-select: none;
             -webkit-user-select: none;
             position: relative;
         }
 
-        /* 增加按下去時的視覺回饋與輕微位移，避免重複偵測卡死 */
         .touch-btn:active {
             background: #f1c40f;
             color: #111;
@@ -330,6 +328,7 @@
     let currentQuestionIndex = 0;
     let score = 0;
     let gameActive = false;
+    let isColliding = false; // 🛡️ 關鍵 Debug：防重複碰撞與死鎖的保護旗標
 
     const containerWidth = 800;
     const containerHeight = 460;
@@ -346,7 +345,6 @@
     const jumpForce = 13.5; 
     const speed = 6;    
 
-    // 核心 Debug 改善：將狀態明確分開，避免鍵盤與觸控互相覆蓋卡死
     const keys = { ArrowLeft: false, ArrowRight: false, ArrowUp: false, Space: false };
 
     const gameWrapper = document.getElementById('game-wrapper');
@@ -376,12 +374,11 @@
         }
     });
 
-    // 2. 📱 觸控事件 Debug 與核心優化（全域防卡死防護）
+    // 2. 📱 觸控事件監聽
     const btnLeft = document.getElementById('btn-left');
     const btnRight = document.getElementById('btn-right');
     const btnJump = document.getElementById('btn-jump');
 
-    // 防止選單干擾
     [btnLeft, btnRight, btnJump].forEach(btn => {
         btn.addEventListener('contextmenu', e => e.preventDefault());
     });
@@ -390,7 +387,6 @@
     btnRight.addEventListener('touchstart', (e) => { e.preventDefault(); keys['ArrowRight'] = true; });
     btnJump.addEventListener('touchstart', (e) => { e.preventDefault(); keys['ArrowUp'] = true; });
 
-    // 優化防卡死：當手指放開、移出按鈕、或者觸控被系統取消時，都要完整清除按鍵狀態
     btnLeft.addEventListener('touchend', (e) => { e.preventDefault(); keys['ArrowLeft'] = false; });
     btnLeft.addEventListener('touchcancel', (e) => { keys['ArrowLeft'] = false; });
 
@@ -400,7 +396,6 @@
     btnJump.addEventListener('touchend', (e) => { e.preventDefault(); keys['ArrowUp'] = false; });
     btnJump.addEventListener('touchcancel', (e) => { keys['ArrowUp'] = false; });
 
-    // 終極安全機制：如果使用者手指瘋狂亂滑滑出範圍外放開，window 層級直接重設所有狀態
     window.addEventListener('touchend', (e) => {
         if (e.touches.length === 0) {
             keys['ArrowLeft'] = false;
@@ -409,14 +404,13 @@
         }
     });
 
-    // 3. 📐 行動端安全等比例縮放防爆版
+    // 3. 📐 行動端安全等比例縮放
     function resizeGame() {
         const windowWidth = window.innerWidth;
         const windowHeight = window.innerHeight;
         const baseWidth = 800;
         const baseHeight = 560;
         
-        // 留 4% 邊距，確保左右不會貼邊被裁切
         let scale = Math.min((windowWidth * 0.96) / baseWidth, (windowHeight * 0.96) / baseHeight);
         if (scale > 1) scale = 1;
         
@@ -441,9 +435,9 @@
         playerY = groundY;
         velocityY = 0;
         isJumping = false;
+        isColliding = false; // 重設防卡死鎖
         playerEl.classList.remove('facing-left');
         
-        // 重設按鍵狀態避免上次遺留
         Object.keys(keys).forEach(k => keys[k] = false);
         
         currentQuestions = getRandomQuestions(questionBank, 5);
@@ -468,9 +462,12 @@
     }
 
     function checkBlockCollision() {
+        // 如果目前正在處理前一個答案，直接跳過判定，防止多重複製與死鎖卡死
+        if (isColliding) return;
+
         let playerTopAbs = containerHeight - playerY - playerHeight;
         
-        // 優化判定機制：只有在往上跳（velocityY > 0）時才觸發頭頂碰撞
+        // 只有在向上跳（velocityY > 0）時，才觸發磚塊碰撞
         if (velocityY > 0 && playerTopAbs <= 240 && playerTopAbs >= 210) {
             if (playerX + playerWidth > 250 && playerX < 330) {
                 triggerAnswer("⭕", blockGreen, 250, 190);
@@ -482,7 +479,8 @@
     }
 
     function triggerAnswer(chosenAnswer, blockEl, blockLeft, blockTop) {
-        velocityY = -1; // 頂到磚塊後微微下墜
+        isColliding = true; // 鎖定碰撞處理
+        velocityY = -2;     // 頂到磚塊後強迫職員往下掉（中斷上升）
         
         blockEl.classList.add('bumped');
         setTimeout(() => blockEl.classList.remove('bumped'), 150);
@@ -493,18 +491,23 @@
             playerEl.style.filter = "drop-shadow(0 0 8px #2ecc71) brightness(1.2)";
             createStarEffect(blockLeft, blockTop);
         } else {
+            // 答錯也正常發光與處理
             playerEl.style.filter = "drop-shadow(0 0 8px #e74c3c) brightness(0.8)";
         }
         
-        setTimeout(() => { playerEl.style.filter = "none"; }, 500);
-
-        currentQuestionIndex++;
-        if (currentQuestionIndex < 5) {
-            updateUI();
-            playerX = 378;
-        } else {
-            endGame();
-        }
+        // 0.5秒後重設發光，並切換到下一題
+        setTimeout(() => { 
+            playerEl.style.filter = "none"; 
+            
+            currentQuestionIndex++;
+            if (currentQuestionIndex < 5) {
+                updateUI();       // 🛡️ 修正：不論對錯都正常更新下一題 UI 
+                playerX = 378;    // 🛡️ 修正：不論對錯都正常重設角色位置回到中間
+                isColliding = false; // 解除防重複判定鎖
+            } else {
+                endGame();
+            }
+        }, 500);
     }
 
     function endGame() {
@@ -514,13 +517,12 @@
         overlayDesc.innerHTML = `你的最終得分是：<strong style='font-size:24px; color:#f1c40f;'>${score} 分</strong> / 100 分<br><br>${score === 100 ? '完美表現！你對機場禁區通行證守則瞭如指掌，是個稱職的機場精英！' : '安全至上！請重新温習機場禁區守則，確保機場運作安全！'}`;
         startBtn.innerText = "重新挑戰";
         
-        // 結束時強制清空按鍵
         Object.keys(keys).forEach(k => keys[k] = false);
+        isColliding = false;
     }
 
     function update() {
         if (gameActive) {
-            // 移動物理邏輯優化
             if (keys.ArrowLeft) {
                 velocityX = -speed;
                 playerEl.classList.add('facing-left'); 
