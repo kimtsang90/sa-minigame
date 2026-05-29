@@ -2,7 +2,7 @@
 <html lang="zh-Hant">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, shrink-to-fit=no">
     <title>機場禁區通行證 - 像素風機場挑戰賽</title>
     <style>
         body {
@@ -16,25 +16,26 @@
             justify-content: center;
             min-height: 100vh;
             user-select: none;
-            -webkit-user-select: none; /* 阻止 iOS 長按選取文字 */
-            overflow: hidden; /* 避免手機瀏覽器上下橡皮筋滾動效果 */
+            -webkit-user-select: none; 
+            overflow: hidden; 
+            /* 關鍵：防止行動端瀏覽器下拉重置或橡皮筋回彈干擾遊戲 */
+            overscroll-behavior: none; 
         }
 
-        /* 遊戲外層包裹：確保在手機/iPad上能等比例自動縮放 */
         #game-wrapper {
             position: relative;
             width: 800px;
-            height: 560px; /* 稍微加高以容納下方的虛擬搖桿區 */
+            height: 560px; 
             display: flex;
             flex-direction: column;
             align-items: center;
+            touch-action: none; /* 全域鎖定瀏覽器預設手勢 */
         }
 
         #game-container {
             position: relative;
             width: 800px;
-            height: 460px; /* 遊戲主畫面高 460px */
-            /* 黃昏/日落時分的香港機場天空背景 */
+            height: 460px; 
             background: linear-gradient(to bottom, #111e38 0%, #204065 40%, #e67e22 80%, #f39c12 100%); 
             border: 4px solid #333;
             border-radius: 8px;
@@ -51,9 +52,7 @@
             width: 100%;
             height: 120px; 
             background-image: 
-                /* 跑道上的飛機剪影 */
                 url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 50' fill='%23111e38'><path d='M10,25 Q30,20 60,23 L85,10 L88,12 L75,25 L92,26 L95,22 L98,22 L96,28 L98,34 L95,34 L92,30 L75,31 L88,44 L85,46 L60,33 Q30,32 10,25 Z'/></svg>"),
-                /* 機場控制塔與客運大樓剪影 */
                 url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 800 120' fill='%231a2a44'><rect x='50' y='80' width='120' height='40'/><polygon points='90,80 100,20 120,20 130,80'/><rect x='95' y='25' width='20' height='15' fill='%232c3e50'/><rect x='250' y='90' width='300' height='30'/><path d='M250,90 Q400,60 550,90 Z'/><rect x='600' y='75' width='80' height='45'/></svg>");
             
             background-position: right 40px bottom 10px, bottom center;
@@ -64,7 +63,6 @@
             z-index: 1;
         }
 
-        /* 頂部 UI */
         #ui-layer {
             position: absolute;
             top: 0;
@@ -81,7 +79,6 @@
             z-index: 10;
         }
 
-        /* 題目顯示區域 */
         #question-box {
             position: absolute;
             top: 50px; 
@@ -92,7 +89,7 @@
             padding: 12px;
             border-radius: 10px;
             text-align: center;
-            font-size: 18px; /* 稍微縮小字體以利手機閱讀 */
+            font-size: 18px; 
             font-weight: bold;
             border: 3px solid #0056b3;
             box-shadow: 0 4px 15px rgba(0,0,0,0.3);
@@ -100,7 +97,6 @@
             z-index: 10;
         }
 
-        /* 地面：機場跑道風格 */
         #ground {
             position: absolute;
             bottom: 0;
@@ -122,7 +118,7 @@
             background: repeating-linear-gradient(90deg, #f1c40f, #f1c40f 40px, transparent 40px, transparent 80px);
         }
 
-        /* 🧑‍✈️ 純 CSS 8-bit 像素風機場職員 */
+        /* 🧑‍✈️ 像素風機場職員 */
         #player {
             position: absolute;
             width: 44px;  
@@ -131,39 +127,27 @@
             transition: transform 0.1s, filter 0.2s; 
             
             background: 
-                /* 眼睛 */
                 linear-gradient(to right, #000 0%, #000 100%) 24px 20px / 4px 4px,
                 linear-gradient(to right, #000 0%, #000 100%) 36px 20px / 4px 4px,
-                /* 機長帽金色徽章 */
                 linear-gradient(to right, #f1c40f 0%, #f1c40f 100%) 28px 4px / 8px 4px,
-                /* 機長大盤帽 */
                 linear-gradient(to right, #f39c12 0%, #f39c12 100%) 16px 0px / 32px 4px,
                 linear-gradient(to right, #f1c40f 0%, #f1c40f 100%) 12px 4px / 40px 4px,
                 linear-gradient(to right, #222 0%, #222 100%) 8px 8px / 44px 4px,
-                /* 皮膚 */
                 linear-gradient(to right, #ffdbac 0%, #ffdbac 100%) 16px 12px / 32px 16px,
                 linear-gradient(to right, #ffdbac 0%, #ffdbac 100%) 24px 28px / 16px 4px,
-                /* 深藍色制服與領帶 */
                 linear-gradient(to right, #c0392b 0%, #c0392b 100%) 30px 32px / 4px 12px, 
                 linear-gradient(to right, #2980b9 0%, #2980b9 100%) 12px 32px / 40px 24px, 
-                /* 雙手 */
                 linear-gradient(to right, #ffdbac 0%, #ffdbac 100%) 4px 40px / 8px 8px,
                 linear-gradient(to right, #ffdbac 0%, #ffdbac 100%) 52px 4px / 8px 8px, 
-                /* 褲子 */
                 linear-gradient(to right, #34495e 0%, #34495e 100%) 16px 56px / 12px 4px, 
                 linear-gradient(to right, #34495e 0%, #34495e 100%) 36px 56px / 12px 4px, 
-                /* 皮鞋 */
                 linear-gradient(to right, #111 0%, #111 100%) 12px 60px / 16px 4px,
                 linear-gradient(to right, #111 0%, #111 100%) 36px 60px / 16px 4px;
-            
             background-repeat: no-repeat;
         }
 
-        .facing-left {
-            transform: scaleX(-1);
-        }
+        .facing-left { transform: scaleX(-1); }
 
-        /* 答案磚塊 */
         .block {
             position: absolute;
             width: 80px;
@@ -179,7 +163,7 @@
             box-shadow: 0 6px 0 #222;
             z-index: 5;
         }
-        .block-green { background: #2ecc71; top: 190px; left: 250px; } /* 微調高度適配 460px 的新容器 */
+        .block-green { background: #2ecc71; top: 190px; left: 250px; } 
         .block-red { background: #e74c3c; top: 190px; left: 470px; }
 
         @keyframes bump {
@@ -189,7 +173,6 @@
         }
         .bumped { animation: bump 0.15s ease; }
 
-        /* ⭐ 星星特效 */
         .star-effect {
             position: absolute;
             font-size: 36px;
@@ -206,7 +189,7 @@
             100% { transform: translate(-50%, -130px) scale(1); opacity: 0; }
         }
 
-        /* 📱 新增：手機與 iPad 專用虛線搖桿觸控按鈕區 */
+        /* 📱 虛擬按鈕優化 */
         #touch-controls {
             width: 100%;
             height: 90px;
@@ -215,18 +198,14 @@
             justify-content: space-between;
             align-items: center;
             box-sizing: border-box;
-            padding: 0 10px;
+            padding: 0 15px;
         }
 
-        .control-group {
-            display: flex;
-            gap: 15px;
-        }
+        .control-group { display: flex; gap: 20px; }
 
-        /* 觸控按鈕樣式 */
         .touch-btn {
-            width: 70px;
-            height: 70px;
+            width: 75px;
+            height: 75px;
             background: #2c3e50;
             border: 3px solid #fff;
             color: #fff;
@@ -234,25 +213,34 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 28px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
-            touch-action: none; /* 禁用瀏覽器預設觸控行為 */
+            font-size: 30px;
+            box-shadow: 0 5px 0 #1a252f;
+            touch-action: none; /* 核心：禁止行動端預設手勢（如長按選取、滾動） */
             user-select: none;
             -webkit-user-select: none;
+            position: relative;
         }
+
+        /* 增加按下去時的視覺回饋與輕微位移，避免重複偵測卡死 */
         .touch-btn:active {
             background: #f1c40f;
             color: #111;
-            transform: scale(0.92);
+            transform: translateY(3px);
+            box-shadow: 0 2px 0 #1a252f;
         }
+        
         #btn-jump {
             background: #e67e22;
-            border-radius: 20px; /* 讓跳躍鍵看起來不一樣 */
-            width: 85px;
+            border-radius: 22px; 
+            width: 95px;
+            box-shadow: 0 5px 0 #d35400;
         }
-        #btn-jump:active { background: #d35400; color: #fff;}
+        #btn-jump:active { 
+            background: #d35400; 
+            color: #fff;
+            box-shadow: 0 2px 0 #a04000;
+        }
 
-        /* 遮罩畫面 */
         #screen-overlay {
             position: absolute;
             top: 0;
@@ -302,7 +290,6 @@
             <div id="block-red" class="block block-red">❌</div>
 
             <div id="player"></div>
-
             <div id="ground"></div>
 
             <div id="screen-overlay">
@@ -326,7 +313,6 @@
     </div>
 
 <script>
-    // 官方 10 題核心題庫
     const questionBank = [
         { q: "通行證有效期屆滿了，我可以嘗試進入機場禁區嗎？", a: "❌" },
         { q: "如果我的通行證上沒有「B」字批註，我可以進入行李處理大堂嗎？", a: "❌" },
@@ -345,7 +331,6 @@
     let score = 0;
     let gameActive = false;
 
-    // 物理與常數設定 (高度適配新容器高 460px)
     const containerWidth = 800;
     const containerHeight = 460;
     const groundY = 40; 
@@ -358,10 +343,10 @@
     let velocityY = 0;
     let isJumping = false;
     const gravity = 0.6;
-    const jumpForce = 13; // 微調跳躍力
-    const speed = 5.5;    // 微調速度
+    const jumpForce = 13.5; 
+    const speed = 6;    
 
-    // 按鍵狀態管理
+    // 核心 Debug 改善：將狀態明確分開，避免鍵盤與觸控互相覆蓋卡死
     const keys = { ArrowLeft: false, ArrowRight: false, ArrowUp: false, Space: false };
 
     const gameWrapper = document.getElementById('game-wrapper');
@@ -376,7 +361,7 @@
     const blockGreen = document.getElementById('block-green');
     const blockRed = document.getElementById('block-red');
 
-    // 1. 🖥️ 電腦鍵盤事件監聽
+    // 1. 🖥️ 鍵盤事件監聽
     window.addEventListener('keydown', (e) => {
         if (e.code in keys || e.key === ' ') {
             if(e.code === 'Space') keys['Space'] = true;
@@ -391,38 +376,48 @@
         }
     });
 
-    // 2. 📱 手機/iPad 觸控事件監聽 (支援多點觸控，左右跟跳躍可同時按)
+    // 2. 📱 觸控事件 Debug 與核心優化（全域防卡死防護）
     const btnLeft = document.getElementById('btn-left');
     const btnRight = document.getElementById('btn-right');
     const btnJump = document.getElementById('btn-jump');
 
-    // 防止手機長按選取或彈出選單
+    // 防止選單干擾
     [btnLeft, btnRight, btnJump].forEach(btn => {
         btn.addEventListener('contextmenu', e => e.preventDefault());
     });
 
     btnLeft.addEventListener('touchstart', (e) => { e.preventDefault(); keys['ArrowLeft'] = true; });
-    btnLeft.addEventListener('touchend', (e) => { e.preventDefault(); keys['ArrowLeft'] = false; });
-    
     btnRight.addEventListener('touchstart', (e) => { e.preventDefault(); keys['ArrowRight'] = true; });
-    btnRight.addEventListener('touchend', (e) => { e.preventDefault(); keys['ArrowRight'] = false; });
-    
     btnJump.addEventListener('touchstart', (e) => { e.preventDefault(); keys['ArrowUp'] = true; });
-    btnJump.addEventListener('touchend', (e) => { e.preventDefault(); keys['ArrowUp'] = false; });
 
-    // 3. 📐 RWD 行動端螢幕自動等比例縮放適配 (iPad / 任何手機都能看全)
+    // 優化防卡死：當手指放開、移出按鈕、或者觸控被系統取消時，都要完整清除按鍵狀態
+    btnLeft.addEventListener('touchend', (e) => { e.preventDefault(); keys['ArrowLeft'] = false; });
+    btnLeft.addEventListener('touchcancel', (e) => { keys['ArrowLeft'] = false; });
+
+    btnRight.addEventListener('touchend', (e) => { e.preventDefault(); keys['ArrowRight'] = false; });
+    btnRight.addEventListener('touchcancel', (e) => { keys['ArrowRight'] = false; });
+
+    btnJump.addEventListener('touchend', (e) => { e.preventDefault(); keys['ArrowUp'] = false; });
+    btnJump.addEventListener('touchcancel', (e) => { keys['ArrowUp'] = false; });
+
+    // 終極安全機制：如果使用者手指瘋狂亂滑滑出範圍外放開，window 層級直接重設所有狀態
+    window.addEventListener('touchend', (e) => {
+        if (e.touches.length === 0) {
+            keys['ArrowLeft'] = false;
+            keys['ArrowRight'] = false;
+            keys['ArrowUp'] = false;
+        }
+    });
+
+    // 3. 📐 行動端安全等比例縮放防爆版
     function resizeGame() {
         const windowWidth = window.innerWidth;
         const windowHeight = window.innerHeight;
-        
-        // 基本遊戲設計寬高為 800 x 560
         const baseWidth = 800;
         const baseHeight = 560;
         
-        // 計算最佳縮放比率（保留 5% 邊距避免貼邊）
-        let scale = Math.min((windowWidth * 0.95) / baseWidth, (windowHeight * 0.95) / baseHeight);
-        
-        // 限制最大不能超過原圖大小 (1倍)
+        // 留 4% 邊距，確保左右不會貼邊被裁切
+        let scale = Math.min((windowWidth * 0.96) / baseWidth, (windowHeight * 0.96) / baseHeight);
         if (scale > 1) scale = 1;
         
         gameWrapper.style.transform = `scale(${scale})`;
@@ -430,11 +425,9 @@
     }
 
     window.addEventListener('resize', resizeGame);
-    // 首次載入與延遲確保 iOS 尺寸計算正確
     resizeGame();
-    setTimeout(resizeGame, 300);
+    setTimeout(resizeGame, 200);
 
-    // 隨機抽題
     function getRandomQuestions(bank, count) {
         let shuffled = [...bank].sort(() => Math.random() - 0.5);
         return shuffled.slice(0, count);
@@ -449,6 +442,9 @@
         velocityY = 0;
         isJumping = false;
         playerEl.classList.remove('facing-left');
+        
+        // 重設按鍵狀態避免上次遺留
+        Object.keys(keys).forEach(k => keys[k] = false);
         
         currentQuestions = getRandomQuestions(questionBank, 5);
         updateUI();
@@ -472,10 +468,9 @@
     }
 
     function checkBlockCollision() {
-        // 容器總高改為 460px 後的碰撞絕對位置計算
         let playerTopAbs = containerHeight - playerY - playerHeight;
         
-        // 新高度下的磚塊位於 top: 190px，判定範圍落在 210px - 240px 之間
+        // 優化判定機制：只有在往上跳（velocityY > 0）時才觸發頭頂碰撞
         if (velocityY > 0 && playerTopAbs <= 240 && playerTopAbs >= 210) {
             if (playerX + playerWidth > 250 && playerX < 330) {
                 triggerAnswer("⭕", blockGreen, 250, 190);
@@ -487,7 +482,8 @@
     }
 
     function triggerAnswer(chosenAnswer, blockEl, blockLeft, blockTop) {
-        velocityY = -2; 
+        velocityY = -1; // 頂到磚塊後微微下墜
+        
         blockEl.classList.add('bumped');
         setTimeout(() => blockEl.classList.remove('bumped'), 150);
 
@@ -517,10 +513,14 @@
         overlayTitle.innerText = "🎉 挑戰完成！";
         overlayDesc.innerHTML = `你的最終得分是：<strong style='font-size:24px; color:#f1c40f;'>${score} 分</strong> / 100 分<br><br>${score === 100 ? '完美表現！你對機場禁區通行證守則瞭如指掌，是個稱職的機場精英！' : '安全至上！請重新温習機場禁區守則，確保機場運作安全！'}`;
         startBtn.innerText = "重新挑戰";
+        
+        // 結束時強制清空按鍵
+        Object.keys(keys).forEach(k => keys[k] = false);
     }
 
     function update() {
         if (gameActive) {
+            // 移動物理邏輯優化
             if (keys.ArrowLeft) {
                 velocityX = -speed;
                 playerEl.classList.add('facing-left'); 
