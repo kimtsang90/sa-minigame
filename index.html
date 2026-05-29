@@ -123,7 +123,12 @@
             width: 44px;  
             height: 64px; 
             z-index: 5;
-            transition: transform 0.1s; 
+            
+            --size-scale: 1.0;
+            --dir-scale: 1;
+            transform: scale(calc(var(--size-scale) * var(--dir-scale)), var(--size-scale));
+            transform-origin: bottom center; 
+            transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275); 
             
             background: 
                 linear-gradient(to right, #000 0%, #000 100%) 24px 20px / 4px 4px,
@@ -145,9 +150,6 @@
             background-repeat: no-repeat;
         }
 
-        .facing-left { transform: scaleX(-1); }
-
-        /* 💥 核心改進：改用高效能 CSS 動態閃爍，解決瀏覽器硬體加速死鎖問題 */
         @keyframes correct-flash {
             0% { filter: drop-shadow(0 0 12px #2ecc71) brightness(1.3); }
             100% { filter: none; }
@@ -198,6 +200,42 @@
             0% { transform: translate(-50%, 0) scale(0.5); opacity: 0; }
             30% { opacity: 1; transform: translate(-50%, -60px) scale(1.4); }
             100% { transform: translate(-50%, -130px) scale(1); opacity: 0; }
+        }
+
+        /* ⚡ 核心改進：連擊 (Combo) 華麗浮動特效動畫 */
+        .combo-effect {
+            position: absolute;
+            font-family: 'Arial Black', Impact, sans-serif;
+            font-weight: 900;
+            font-size: 32px;
+            color: #f1c40f;
+            text-shadow: 2px 2px 0px #000, -2px -2px 0px #000, 2px -2px 0px #000, -2px 2px 0px #000, 0px 0px 12px rgba(241,196,15,0.8);
+            pointer-events: none;
+            z-index: 20;
+            white-space: nowrap;
+            animation: comboFloat 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.5) forwards;
+        }
+        
+        /* Perfect 特效要更炫目奪眼 */
+        .combo-perfect {
+            font-size: 42px;
+            color: #ff3366;
+            text-shadow: 3px 3px 0px #000, -3px -3px 0px #000, 3px -3px 0px #000, -3px 3px 0px #000, 0px 0px 20px #ff3366;
+            animation: perfectFloat 1.0s cubic-bezier(0.175, 0.885, 0.32, 1.6) forwards;
+        }
+
+        @keyframes comboFloat {
+            0% { transform: translate(-50%, 0) scale(0.3); opacity: 0; }
+            20% { transform: translate(-50%, -40px) scale(1.3); opacity: 1; }
+            35% { transform: translate(-50%, -35px) scale(1.0); }
+            100% { transform: translate(-50%, -90px) scale(0.8); opacity: 0; }
+        }
+
+        @keyframes perfectFloat {
+            0% { transform: translate(-50%, 0) scale(0.2) rotate(-15deg); opacity: 0; }
+            25% { transform: translate(-50%, -50px) scale(1.5) rotate(10deg); opacity: 1; }
+            50% { transform: translate(-50%, -45px) scale(1.2) rotate(-5deg); }
+            100% { transform: translate(-50%, -110px) scale(0.9) rotate(0deg); opacity: 0; }
         }
 
         /* 📱 虛擬按鈕樣式 */
@@ -341,6 +379,8 @@
     let score = 0;
     let gameActive = false;
     let isColliding = false; 
+    let playerScale = 1.0; 
+    let comboCount = 0; // ⚡ 用來追蹤目前連續答對的次數
 
     const containerWidth = 800;
     const containerHeight = 460;
@@ -372,7 +412,7 @@
     const blockGreen = document.getElementById('block-green');
     const blockRed = document.getElementById('block-red');
 
-    // 1. 🖥️ 鍵盤事件監聽
+    // 1. 🖥️ 鍵盤事件
     window.addEventListener('keydown', (e) => {
         if (e.code in keys || e.key === ' ') {
             if(e.code === 'Space') keys['Space'] = true;
@@ -387,7 +427,7 @@
         }
     });
 
-    // 2. 📱 觸控事件監聽
+    // 2. 📱 觸控事件
     const btnLeft = document.getElementById('btn-left');
     const btnRight = document.getElementById('btn-right');
     const btnJump = document.getElementById('btn-jump');
@@ -417,7 +457,7 @@
         }
     });
 
-    // 3. 📐 行動端安全等比例縮放
+    // 3. 📐 RWD 縮放
     function resizeGame() {
         const windowWidth = window.innerWidth;
         const windowHeight = window.innerHeight;
@@ -444,12 +484,17 @@
         overlay.style.display = 'none';
         score = 0;
         currentQuestionIndex = 0;
+        comboCount = 0; // 重置連擊
         playerX = 378;
         playerY = groundY;
         velocityY = 0;
         isJumping = false;
         isColliding = false; 
-        playerEl.className = ""; // 清空動畫類別
+        
+        playerScale = 1.0;
+        playerEl.style.setProperty('--size-scale', '1.0');
+        playerEl.style.setProperty('--dir-scale', '1');
+        playerEl.className = ""; 
         
         Object.keys(keys).forEach(k => keys[k] = false);
         
@@ -474,12 +519,22 @@
         setTimeout(() => star.remove(), 600);
     }
 
+    // ⚡ 產生連擊浮動文字特效
+    function createComboEffect(text, leftPosition, topPosition, isPerfect) {
+        const combo = document.createElement('div');
+        combo.className = isPerfect ? 'combo-effect combo-perfect' : 'combo-effect';
+        combo.innerText = text;
+        combo.style.left = (leftPosition + 40) + 'px';
+        combo.style.top = (topPosition - 20) + 'px'; // 稍微在磚塊上方一點爆發
+        gameContainer.appendChild(combo);
+        setTimeout(() => combo.remove(), 1000);
+    }
+
     function checkBlockCollision() {
         if (isColliding) return;
 
         let playerTopAbs = containerHeight - playerY - playerHeight;
         
-        // 只有在向上跳（velocityY > 0）時，才觸發磚塊碰撞
         if (velocityY > 0 && playerTopAbs <= 240 && playerTopAbs >= 210) {
             if (playerX + playerWidth > 250 && playerX < 330) {
                 triggerAnswer("⭕", blockGreen, 250, 190);
@@ -492,24 +547,37 @@
 
     function triggerAnswer(chosenAnswer, blockEl, blockLeft, blockTop) {
         isColliding = true; 
-        velocityY = -4; // 頂到瞬間給予強大下墜速度，瞬間脫離磚塊
+        velocityY = -4; 
         
         blockEl.classList.add('bumped');
         setTimeout(() => blockEl.classList.remove('bumped'), 150);
 
-        // 重設 CSS 動畫，確保每次頂磚塊都能正確重播
         playerEl.classList.remove('ans-correct', 'ans-wrong');
-        void playerEl.offsetWidth; // 強制重流（Reflow），這是解決瀏覽器凍結的關鍵密技！
+        void playerEl.offsetWidth; 
 
         const correctAnswer = currentQuestions[currentQuestionIndex].a;
         if (chosenAnswer === correctAnswer) {
             score += 20;
+            comboCount++; // 連擊數增加！
+            
             playerEl.classList.add('ans-correct');
             createStarEffect(blockLeft, blockTop);
+            
+            // 判斷連擊層級顯示對應文字特效
+            if (comboCount === 5) {
+                createComboEffect("🎉 PERFECT!!", blockLeft, blockTop, true);
+            } else if (comboCount > 1) {
+                createComboEffect(`🔥 X${comboCount}`, blockLeft, blockTop, false);
+            }
+
+            playerScale = 1.35; // 答對放大
         } else {
+            comboCount = 0; // 答錯！連擊歸零
             playerEl.classList.add('ans-wrong');
+            playerScale = 0.7;  // 答錯縮小
         }
 
+        playerEl.style.setProperty('--size-scale', playerScale);
         currentQuestionIndex++;
     }
 
@@ -517,7 +585,7 @@
         gameActive = false;
         overlay.style.display = 'flex';
         overlayTitle.innerText = "🎉 挑戰完成！";
-        overlayDesc.innerHTML = `你的最終得分是：<strong style='font-size:24px; color:#f1c40f;'>${score} 分</strong> / 100 分<br><br>${score === 100 ? '完美表現！你對機場禁區通行證守則瞭如指掌，是個稱職的機場精英！' : '安全至上！請重新温習機場禁區守則，確保機場運作安全！'}`;
+        overlayDesc.innerHTML = `你的最終得分是：<strong style='font-size:24px; color:#f1c40f;'>${score} 分</strong> / 100 分<br><br>${score === 100 ? '🔥 完美表現！你達成了全對 Perfect 紀錄！對機場禁區通行證守則瞭如指掌！' : '安全至上！請重新温習機場禁區守則，確保機場運作安全！'}`;
         startBtn.innerText = "重新挑戰";
         
         Object.keys(keys).forEach(k => keys[k] = false);
@@ -528,10 +596,10 @@
         if (gameActive) {
             if (keys.ArrowLeft) {
                 velocityX = -speed;
-                playerEl.classList.add('facing-left'); 
+                playerEl.style.setProperty('--dir-scale', '-1'); 
             } else if (keys.ArrowRight) {
                 velocityX = speed;
-                playerEl.classList.remove('facing-left'); 
+                playerEl.style.setProperty('--dir-scale', '1');  
             } else {
                 velocityX = 0;
             }
@@ -546,18 +614,16 @@
                 velocityY -= gravity;
             }
 
-            // 【完全落地後的同步機制】
             if (playerY <= groundY) {
                 playerY = groundY;
                 velocityY = 0;
                 isJumping = false;
                 
-                // 當確定安全踩到跑道後，再更新下一題文字並重置位置，徹底斷絕黏在空中的視覺殘留 Bug！
                 if (isColliding) {
                     if (currentQuestionIndex < 5) {
                         updateUI();       
                         playerX = 378; 
-                        isColliding = false; // 開鎖
+                        isColliding = false; 
                     } else {
                         endGame();
                     }
